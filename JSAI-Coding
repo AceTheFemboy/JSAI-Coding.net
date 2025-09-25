@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CryoCoder Lite</title>
+  <style>
+    body {
+      background-color: #0f0f0f;
+      color: #00ffff;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    textarea {
+      width: 80%;
+      height: 150px;
+      font-size: 16px;
+      background-color: #1a1a1a;
+      color: #00ffff;
+      border: 2px solid #00ffff;
+      padding: 10px;
+      resize: none;
+    }
+    #output {
+      width: 80%;
+      margin-top: 20px;
+      background-color: #1a1a1a;
+      border: 2px solid #00ffff;
+      padding: 10px;
+      font-size: 16px;
+      white-space: pre-wrap;
+    }
+    #languageDisplay {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #88ff88;
+    }
+    #confidenceBar {
+      width: 80%;
+      height: 10px;
+      background-color: #333;
+      margin-top: 5px;
+      border: 1px solid #00ffff;
+    }
+    #confidenceFill {
+      height: 100%;
+      background-color: #00ffff;
+      width: 0%;
+    }
+    .keyword {
+      color: #00ffff;
+      font-weight: bold;
+    }
+    .error {
+      color: #ff4444;
+      font-weight: bold;
+    }
+    .fix {
+      color: #88ff88;
+      font-style: italic;
+    }
+    #chatToggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #00ffff;
+      color: #0f0f0f;
+      border: none;
+      padding: 10px 20px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    #supportStatus {
+      position: fixed;
+      bottom: 60px;
+      right: 20px;
+      font-weight: bold;
+      color: red;
+    }
+    #chatPopup {
+      display: none;
+      position: fixed;
+      bottom: 100px;
+      right: 20px;
+      width: 280px;
+      max-height: 400px;
+      background-color: #1a1a1a;
+      border: 2px solid #00ffff;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-direction: column;
+    }
+    #chatHeader {
+      background-color: #00ffff;
+      color: #0f0f0f;
+      padding: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+    #chatLog {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+    #chatInput {
+      display: flex;
+      border-top: 1px solid #00ffff;
+    }
+    #chatInput input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background-color: #0f0f0f;
+      color: #00ffff;
+      font-family: inherit;
+    }
+    #chatInput button {
+      background-color: #00ffff;
+      color: #0f0f0f;
+      border: none;
+      padding: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .userMsg {
+      color: #88ff88;
+      margin-bottom: 5px;
+    }
+    .aiMsg {
+      color: #00ffff;
+      margin-bottom: 5px;
+      animation: fadeIn 0.3s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <h1>🐳 CryoCoder Lite</h1>
+  <textarea id="codeInput" placeholder="Type code..."></textarea>
+  <div id="languageDisplay"></div>
+  <div id="confidenceBar"><div id="confidenceFill"></div></div>
+  <div id="output"></div>
+  <button id="chatToggle">💬 Code Support</button>
+  <div id="supportStatus">Support: Offline</div>
+  <div id="chatPopup">
+    <div id="chatHeader">🐳 AI Support Assistant</div>
+    <div id="chatLog"></div>
+    <div id="chatInput">
+      <input type="text" id="userInput" placeholder="Ask me anything..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+  <script>
+    const toggle = document.getElementById("chatToggle");
+    const popup = document.getElementById("chatPopup");
+    const sendBtn = document.getElementById("sendBtn");
+    const userInput = document.getElementById("userInput");
+    const chatLog = document.getElementById("chatLog");
+    const status = document.getElementById("supportStatus");
+    const input = document.getElementById("codeInput");
+    const output = document.getElementById("output");
+    const languageDisplay = document.getElementById("languageDisplay");
+    const confidenceFill = document.getElementById("confidenceFill");
+
+    const languageKeywords = {
+      python: ["def", "return", "import", "if", "elif", "else", "for", "while", "print"],
+      javascript: ["function", "return", "let", "const", "if", "else", "for", "while"],
+      cpp: ["#include", "std::", "cout", "cin", "int main", "namespace", "using"],
+      csharp: ["using", "namespace", "class", "public", "static", "void", "Console.WriteLine"],
+      lua: ["function", "end", "local", "print", "if", "then"],
+      rust: ["fn", "let", "mut", "pub", "impl", "use"],
+      typescript: ["interface", "type", "enum", "readonly", "implements"],
+      json: ["{", "}", ":", "[", "]"],
+      markdown: ["#", "##", "###", "**", "*", "- ", "[", "]", "`"],
+      go: ["func", "package", "import", "fmt", "var"],
+      html: ["<!DOCTYPE>", "<html>", "<head>", "<body>", "<div>", "<span>", "<script>", "<style>"],
+      css: ["color", "background", "font-size", "margin", "padding", "border", "display", "flex"],
+      java: ["public", "static", "void", "main", "System.out.println", "class", "import"],
+      ruby: ["def", "end", "puts", "require", "class", "module"],
+      sql: ["SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE", "JOIN"],
+      xml: ["<?xml", "<note>", "</note>", "<data>", "</data>"],
+      shell: ["echo", "cd", "ls", "pwd", "export", "read"],
+      bash: ["#!/bin/bash", "echo", "cd", "ls", "pwd", "export", "read"],
+      batch: ["@echo off", "set", "pause", "goto", "if exist", "echo", "rem"]
+    };
+
+    input.addEventListener("input", () => {
+      const code = input.value;
+      let matchCounts = {};
+      let maxMatch = 0;
+      let detectedLang = "";
+
+      for (const [lang, keywords] of Object.entries(languageKeywords)) {
+        const count = keywords.filter(kw => code.includes(kw)).length;
+        matchCounts[lang] = count;
+        if (count > maxMatch) {
+          maxMatch = count;
+          detectedLang = lang;
+        }
+      }
+
+      const topMatches = Object.values(matchCounts).filter(c => c === maxMatch);
+      const confidence = (topMatches.length === 1 && maxMatch > 0) ? 1 : 0;
+      if (confidence === 0) detectedLang = "unknown or mixed code";
+
+      languageDisplay.textContent = `Detected Language: ${detectedLang.toUpperCase()} (Confidence: ${confidence})`;
+      confidenceFill.style.width = `${confidence * 100}%`;
+
+      let highlighted = code;
+      if (languageKeywords[detectedLang]) {
+        languageKeywords[detectedLang].forEach(kw => {
+          const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, "g");
+          highlighted = highlighted.replace(regex, `<span class='keyword'>${kw}</span>`);
+        });
+      }
+
+      output.innerHTML = highlighted;
+    });
+
+    window.addEventListener("load", () => {
+      popup.style.display = "none";
+      status.textContent = "Support: Offline";
+      status.style.color = "red";
+    });
+
+    toggle.addEventListener("click", () => {
+      const isOnline = popup.style.display === "none";
+      popup.style.display = isOnline ? "flex" : "none";
+      status.textContent = isOnline ? "Support: Online" : "Support: Offline";
+      status.style.color = isOnline ? "limegreen" : "red";
+
+      if (isOnline && chatLog.children.length === 0) {
+        appendMessage("ai", "Welcome to FurTek Coding Support! How may I help? (Type 'help' to see available commands.)");
+      }
+    });
+
+    function appendMessage(sender, text) {
+      const div = document.createElement("div");
+      div.className = sender === "user" ? "userMsg" : "aiMsg";
+      div.textContent = (sender === "user" ? "You: " : "Cryo: ") + text;
+      chatLog.appendChild(div);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    sendBtn.addEventListener("click", () => {
+      const msg = userInput.value.trim();
+      if (!msg) return;
+      appendMessage("user", msg);
+      userInput.value = "";
+      setTimeout(() => {
+        appendMessage("ai", getAIResponse(msg));
+      }, 500);
+    });
+
+    function getAIResponse(input) {
+      const lower = input.toLowerCase();
+      if (lower.includes("help")) {
+        return "Here are the available commands:\n• Code – Help with your code\n• Syntax – Help with basic syntax errors\n• Scam – Help identifying scam tactics\n• Help – Show this list again";
+      } else if (lower.includes("syntax")) {
+        return "Syntax issues often come from missing brackets or semicolons. Want me to scan your code?";
+      } else if (lower.includes("scam")) {
+        return "Scam Tip: Watch for phrases like 'Professional Graphics Designer' — especially if they ask for payment upfront.";
+      } else if (lower.includes("code")) {
+        return "Sure! Paste your code above and I’ll highlight issues and suggest fixes in real time.";
+      }
+      return "I'm here to help. Try asking about code, syntax, or scams.";
+    }
+  </script>
+</body>
+</html>
