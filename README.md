@@ -1,4 +1,6 @@
 CryoCoder Lite
+
+
 CryoCoder Lite is a lightweight, interactive code analysis tool built entirely in HTML, CSS, and JavaScript. It features real-time language detection, syntax highlighting, and an integrated AI support chat for coding help and scam awareness.
 
 Features
